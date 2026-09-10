@@ -1,0 +1,15 @@
+.env
+metadata.db
+transcriptions.db
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+logs/
+vtt_cache/
+tmp_audio/
+data/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/

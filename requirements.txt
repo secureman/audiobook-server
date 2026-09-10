@@ -1,0 +1,19 @@
+fastapi>=0.115.0,<0.116
+# NOTE: deliberately NOT uvicorn[standard] — the [standard] extras (uvloop,
+# httptools, watchfiles) have no prebuilt wheels for Termux/Android and
+# watchfiles requires Rust. This server targets Termux; the extras are pure
+# performance tuning we do not need on a LAN service.
+uvicorn
+# pydantic v1 line: pydantic v2 needs pydantic-core, a Rust extension with
+# no prebuilt Android wheels. v1 is pure Python and fully supported by
+# FastAPI — this keeps the Termux install 100% compiler-free.
+# fastapi is pinned <0.116 because newer releases dropped pydantic v1
+# support in code while still advertising v1 in metadata.
+pydantic>=1.10,<2
+httpx
+aiosqlite
+aiofiles
+python-dotenv
+# pyjwt — pure Python JWT impl. bcrypt/argon2-cffi avoided for the same
+# Termux-wheel reason; hashing uses stdlib hashlib.pbkdf2_hmac.
+pyjwt
