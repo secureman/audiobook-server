@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 # Smoke test for the NEW endpoints only (book upsert + chapters replace).
+#
+# Auth: progress endpoints are X-API-key-only now — the key is an
+# Audiobookshelf token validated against ABS (see security.py). The script
+# takes it from ABS_API_TOKEN in .env or the ABS_API_TOKEN env var; there is
+# no login flow to script anymore (the /api/auth/* JWT path still exists and
+# is smoke-checked at the end for regression).
 set -uo pipefail
 BASE="${BASE:-http://127.0.0.1:8001}"
 PASS=0
@@ -13,16 +19,17 @@ check() {
   fi
 }
 
-REG=$(curl -s -X POST "$BASE/api/auth/register" -H 'Content-Type: application/json' \
-  -d '{"username":"carol_test","password":"verystrongpass1"}')
-TOKEN=$(echo "$REG" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])' 2>/dev/null)
-if [ -z "$TOKEN" ]; then
-  # Re-run: user already exists — log in instead.
-  TOKEN=$(curl -s -X POST "$BASE/api/auth/login" -H 'Content-Type: application/json' \
-    -d '{"username":"carol_test","password":"verystrongpass1"}' \
-    | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])' 2>/dev/null)
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [ -n "${ABS_API_TOKEN:-}" ]; then
+  TOKEN="$ABS_API_TOKEN"
+elif [ -f "$HERE/.env" ]; then
+  TOKEN=$(grep '^ABS_API_TOKEN' "$HERE/.env" | head -1 | sed 's/^ABS_API_TOKEN=//; s/^"//; s/"$//')
 fi
-H="Authorization: Bearer $TOKEN"
+if [ -z "${TOKEN:-}" ]; then
+  echo "❌ No ABS_API_TOKEN found (env var or .env) — cannot smoke test."
+  exit 1
+fi
+H="X-API-Key: $TOKEN"
 BOOK="book_beta_456"
 
 echo "=== A1. PUT book progress (upsert) ==="
@@ -71,6 +78,24 @@ echo "=== G. No auth -> 401 ==="
 CODE=$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$BASE/api/progress/book/$BOOK" \
   -H 'Content-Type: application/json' -d '{"last_chapter_index": 0, "last_position_seconds": 1.0}')
 check "PUT book no auth" "401" "$CODE"
+
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X PUT "$BASE/api/progress/book/$BOOK" \
+  -H 'X-API-Key: definitely-not-a-real-token' \
+  -H 'Content-Type: application/json' -d '{"last_chapter_index": 0, "last_position_seconds": 1.0}')
+check "PUT book bad key" "401" "$CODE"
+
+echo "=== H. JWT auth path regression check (unchanged) ==="
+REG=$(curl -s -X POST "$BASE/api/auth/register" -H 'Content-Type: application/json' \
+  -d '{"username":"carol_test","password":"verystrongpass1"}')
+JT=$(echo "$REG" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("token",""))' 2>/dev/null)
+if [ -z "$JT" ]; then
+  # Re-run: user already exists — log in instead.
+  JT=$(curl -s -X POST "$BASE/api/auth/login" -H 'Content-Type: application/json' \
+    -d '{"username":"carol_test","password":"verystrongpass1"}' \
+    | python3 -c 'import json,sys; print(json.load(sys.stdin).get("token",""))' 2>/dev/null)
+fi
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $JT" "$BASE/api/auth/me")
+check "JWT /api/auth/me" "200" "$CODE"
 
 echo ""
 echo "  PASSED: $PASS   FAILED: $FAIL"

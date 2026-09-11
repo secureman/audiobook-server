@@ -11,7 +11,7 @@ from models import (
     SetFinishedRequest,
     SetPositionRequest,
 )
-from security import get_current_user
+from security import get_api_key_user
 
 logger = logging.getLogger("router.progress")
 
@@ -31,7 +31,7 @@ def _book_row_to_model(row: dict) -> BookProgress:
 
 @router.get("/progress", response_model=BulkProgress)
 async def get_bulk_progress(
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_api_key_user),
 ) -> BulkProgress:
     """Bulk fetch on login.
 
@@ -72,7 +72,7 @@ async def get_bulk_progress(
 @router.get("/progress/book/{abs_item_id}", response_model=BookProgress)
 async def get_book(
     abs_item_id: str,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_api_key_user),
 ) -> BookProgress:
     row = await db.get_book_progress(user["id"], abs_item_id)
     if row is None:
@@ -88,7 +88,7 @@ async def get_book(
 async def set_book_finished(
     abs_item_id: str,
     req: SetFinishedRequest,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_api_key_user),
 ) -> BookProgress:
     row = await db.upsert_book_finished(
         user["id"], abs_item_id, req.is_finished
@@ -104,7 +104,7 @@ async def set_book_finished(
 async def set_book_progress(
     abs_item_id: str,
     req: SetBookProgressRequest,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_api_key_user),
 ) -> BookProgress:
     """Full book-level upsert from the player's rolling sync — the direct
     replacement for the old ABS `/api/me/progress` PATCH. Keeps the
@@ -131,7 +131,7 @@ async def set_book_progress(
 async def replace_book_chapters(
     abs_item_id: str,
     req: SetBookChaptersRequest,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_api_key_user),
 ) -> None:
     """Replaces the book's whole chapter_done set (whole-book listened
     toggle). One round trip instead of N per-chapter calls.
@@ -154,7 +154,7 @@ async def replace_book_chapters(
 async def mark_chapter_done(
     abs_item_id: str,
     chapter_index: int,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_api_key_user),
 ) -> None:
     if chapter_index < 0:
         raise HTTPException(
@@ -174,7 +174,7 @@ async def mark_chapter_done(
 async def unmark_chapter_done(
     abs_item_id: str,
     chapter_index: int,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_api_key_user),
 ) -> None:
     if chapter_index < 0:
         raise HTTPException(
@@ -195,7 +195,7 @@ async def set_chapter_position(
     abs_item_id: str,
     chapter_index: int,
     req: SetPositionRequest,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_api_key_user),
 ) -> None:
     if chapter_index < 0:
         raise HTTPException(

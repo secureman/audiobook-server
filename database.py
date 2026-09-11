@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import uuid
 
 import aiosqlite
 
@@ -126,7 +127,51 @@ async def stamp_last_login(user_id: str) -> None:
                 "WHERE id = ?",
                 (user_id,),
             )
+async def stamp_last_login(user_id: str) -> None:
+    async with _lock:
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute(
+                "UPDATE users SET last_login_at = CURRENT_TIMESTAMP "
+                "WHERE id = ?",
+                (user_id,),
+            )
             await db.commit()
+
+
+async def get_or_create_api_user() -> dict:
+    """The singleton row that owns everything written via API-key auth.
+
+    The Flutter client no longer logs in — it sends its Audiobookshelf
+    token as an X-API-Key header on every metadata/progress call. All
+    that data needs one user row to attach to (progress tables key off
+    users.id), so every validated API key maps to the same
+    username='api_key' account, created on first use with an unusable
+    random password hash (nobody can log in to it, but it satisfies the
+    NOT NULL column).
+    """
+    async with _lock:
+        async with aiosqlite.connect(DB_PATH) as conn:
+            conn.row_factory = aiosqlite.Row
+            async with conn.execute(
+                "SELECT * FROM users WHERE username = 'api_key' COLLATE NOCASE"
+            ) as cur:
+                row = await cur.fetchone()
+            if row is not None:
+                return dict(row)
+            user_id = uuid.uuid4().hex
+            # Unusable hash: not a valid PBKDF2 record, so login against
+            # this account always fails even if someone guesses the name.
+            await conn.execute(
+                "INSERT INTO users (id, username, password_hash) "
+                "VALUES (?, 'api_key', 'api_key-no-login')",
+                (user_id,),
+            )
+            await conn.commit()
+            async with conn.execute(
+                "SELECT * FROM users WHERE id = ?", (user_id,)
+            ) as cur:
+                row = await cur.fetchone()
+    return dict(row) if row else {}
 
 
 async def delete_user(user_id: str) -> None:
