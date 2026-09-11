@@ -51,6 +51,21 @@ def _resolve_indices(req: TranscribeRequest,
             raise HTTPException(422, "chapter_index out of range")
         return [req.chapter_index]
 
+    # mode == "custom" — explicit list of chapter indices chosen by the user
+    if req.chapters is None or len(req.chapters) == 0:
+        raise HTTPException(
+            422, "chapters list is required when mode='custom'")
+    seen: set[int] = set()
+    out: list[int] = []
+    for ch in req.chapters:
+        if not isinstance(ch, int) or not 0 <= ch < total_chapters:
+            raise HTTPException(
+                422, f"chapter index {ch} out of range") from None
+        if ch not in seen:
+            seen.add(ch)
+            out.append(ch)
+    return sorted(out)
+
     # mode == "range"
     if req.from_chapter is None or req.count is None:
         raise HTTPException(
@@ -66,9 +81,9 @@ def _resolve_indices(req: TranscribeRequest,
 async def transcribe(req: TranscribeRequest) -> dict:
     logger.info(
         "Transcribe request: item=%s mode=%s chapter_index=%s "
-        "from_chapter=%s count=%s",
+        "from_chapter=%s count=%s chapters=%s",
         req.abs_item_id, req.mode, req.chapter_index,
-        req.from_chapter, req.count,
+        req.from_chapter, req.count, req.chapters,
     )
     item_json = await _ensure_book_cached(req.abs_item_id)
     meta = abs_client.extract_meta(item_json)
@@ -78,7 +93,7 @@ async def transcribe(req: TranscribeRequest) -> dict:
 
     indices = _resolve_indices(req, total)
     # Explicit user requests jump the queue; full-book bulk enqueue doesn't.
-    priority = PRIORITY_USER if req.mode in ("chapter", "range") else PRIORITY_BULK
+    priority = PRIORITY_USER if req.mode in ("chapter", "range", "custom") else PRIORITY_BULK
 
     enqueued: list[int] = []
     already_done: list[int] = []

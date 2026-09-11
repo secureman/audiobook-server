@@ -4,10 +4,11 @@ from typing import Literal, Optional
 
 class TranscribeRequest(BaseModel):
     abs_item_id: str
-    mode: Literal["full", "chapter", "range"]
+    mode: Literal["full", "chapter", "range", "custom"]
     chapter_index: Optional[int] = None   # required if mode=chapter
     from_chapter: Optional[int] = None    # required if mode=range
     count: Optional[int] = None           # required if mode=range
+    chapters: Optional[list[int]] = None  # required if mode=custom (explicit indices)
 
 
 class JobStatus(BaseModel):
