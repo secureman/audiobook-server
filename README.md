@@ -37,7 +37,8 @@ needed (every dependency ships pure-Python wheels — see requirements.txt).
 | `TRANSCRIPTION_DB_PATH` | `~/.local/share/audiobook-transcriber/transcriptions.db` | Job history; override to keep it repo-local |
 | `ABS_BASE_URL` / `ABS_API_TOKEN` | — | Audiobookshelf connection (shared by both halves) |
 | `GROQ_API_KEY` | — | Whisper transcription |
-| `OUTPUT_DIR` / `TEMP_DIR` | data dir under `~/.local/share/audiobook-transcriber` | VTT cache / chunked audio temp |
+| `OUTPUT_DIR` | `./transcriptions` (repo root) | Generated `.vtt` files, one folder per `abs_item_id` |
+| `TEMP_DIR` | data dir under `~/.local/share/audiobook-transcriber` | Chunked audio temp |
 | `MAX_CONCURRENT_JOBS` | `2` | ffmpeg workers |
 | `GROQ_MODEL` | `whisper-large-v3-turbo` | |
 | `LOG_DIR` | data dir `logs/` | Rotating `server.log` |
@@ -47,8 +48,9 @@ needed (every dependency ships pure-Python wheels — see requirements.txt).
 Two independent SQLite databases, one process:
 
 - `metadata.db` — `users`, `book_progress`, `chapter_done`, `chapter_position`
-- `transcriptions.db` — transcription job history (`vtt_cache/` holds the
-  generated `.vtt` files keyed by `abs_item_id`)
+- `transcriptions.db` — transcription job history (`transcriptions/` at the
+  repo root holds the generated `.vtt` files, one subfolder per
+  `abs_item_id`, e.g. `transcriptions/<abs_item_id>/chapter_0.vtt`)
 
 ## Tests
 

@@ -76,7 +76,19 @@ class Settings:
 
     # ── Transcription half: jobs / VTT / Groq ─────────────────────────
     GROQ_API_KEY: str = _env_str("GROQ_API_KEY", "")
-    OUTPUT_DIR: str = _env_str("OUTPUT_DIR", resolve_dir("OUTPUT_DIR", "vtt_cache"))
+    # VTTs live at the repo root (`<repo>/transcriptions/<abs_item_id>/
+    # chapter_N.vtt`), not the home-dir data folder the DB/logs/temp-audio
+    # use - easy to find and back up by just looking at the repo. Still
+    # resolved from this file's own location (like METADATA_DB_PATH's
+    # _script_dir() default below), never the process's CWD: how the
+    # server happens to be launched (boot script, detached shell, a
+    # different terminal app) must not silently point this at a
+    # different, empty folder - that's the exact bug class
+    # default_data_dir() (paths.py) was written to avoid, applied here
+    # to a repo-relative default instead of a home-relative one.
+    OUTPUT_DIR: str = _env_str(
+        "OUTPUT_DIR", os.path.join(_script_dir(), "transcriptions")
+    )
     TEMP_DIR: str = _env_str("TEMP_DIR", resolve_dir("TEMP_DIR", "tmp_audio"))
     TRANSCRIPTION_DB_PATH: str = _env_str(
         "TRANSCRIPTION_DB_PATH",

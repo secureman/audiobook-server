@@ -7,6 +7,7 @@ transcriptions.db
 *.db-shm
 logs/
 vtt_cache/
+transcriptions/
 tmp_audio/
 data/
 .venv/
